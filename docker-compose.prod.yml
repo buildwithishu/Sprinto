@@ -1,0 +1,44 @@
+services:
+  web:
+    image: sprinto:latest
+    build:
+      context: .
+    container_name: sprinto_web
+    entrypoint: /app/docker/entrypoint.sh
+    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.prod
+    environment:
+      RUN_MAKEMIGRATIONS: "0"
+      RUN_MIGRATIONS: "1"
+    restart: unless-stopped
+
+  celery_worker:
+    image: sprinto:latest
+    build:
+      context: .
+    container_name: sprinto_celery_worker
+    entrypoint: /app/docker/entrypoint.sh
+    command: celery -A config worker -l info
+    env_file:
+      - .env.prod
+    environment:
+      RUN_MAKEMIGRATIONS: "0"
+      RUN_MIGRATIONS: "0"
+    restart: unless-stopped
+
+  celery_beat:
+    image: sprinto:latest
+    build:
+      context: .
+    container_name: sprinto_celery_beat
+    entrypoint: /app/docker/entrypoint.sh
+    command: celery -A config beat -l info
+    env_file:
+      - .env.prod
+    environment:
+      RUN_MAKEMIGRATIONS: "0"
+      RUN_MIGRATIONS: "0"
+    restart: unless-stopped

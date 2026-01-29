@@ -1,0 +1,110 @@
+services:
+  web:
+    build:
+      context: .
+    container_name: sprinto_web
+    entrypoint: /app/docker/entrypoint.sh
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      DJANGO_ENV: dev
+      DJANGO_SECRET_KEY: "dev-secret-change"
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,0.0.0.0"
+      DJANGO_CSRF_TRUSTED_ORIGINS: "http://localhost:8000"
+      DB_ENGINE: postgres
+      DB_NAME: sprinto
+      DB_USER: sprinto
+      DB_PASSWORD: sprinto
+      DB_HOST: db
+      DB_PORT: 5432
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      RUN_MAKEMIGRATIONS: "1"
+      RUN_MIGRATIONS: "1"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  celery_worker:
+    build:
+      context: .
+    container_name: sprinto_celery_worker
+    entrypoint: /app/docker/entrypoint.sh
+    command: celery -A config worker -l info
+    volumes:
+      - .:/app
+    environment:
+      DJANGO_ENV: dev
+      DJANGO_SECRET_KEY: "dev-secret-change"
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,0.0.0.0"
+      DB_ENGINE: postgres
+      DB_NAME: sprinto
+      DB_USER: sprinto
+      DB_PASSWORD: sprinto
+      DB_HOST: db
+      DB_PORT: 5432
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      RUN_MAKEMIGRATIONS: "0"
+      RUN_MIGRATIONS: "0"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  celery_beat:
+    build:
+      context: .
+    container_name: sprinto_celery_beat
+    entrypoint: /app/docker/entrypoint.sh
+    command: celery -A config beat -l info
+    volumes:
+      - .:/app
+    environment:
+      DJANGO_ENV: dev
+      DJANGO_SECRET_KEY: "dev-secret-change"
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,0.0.0.0"
+      DB_ENGINE: postgres
+      DB_NAME: sprinto
+      DB_USER: sprinto
+      DB_PASSWORD: sprinto
+      DB_HOST: db
+      DB_PORT: 5432
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      CELERY_BEAT_SCHEDULE_FILENAME: /tmp/celerybeat-schedule
+      RUN_MAKEMIGRATIONS: "0"
+      RUN_MIGRATIONS: "0"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  db:
+    image: postgres:15-alpine
+    container_name: sprinto_db
+    environment:
+      POSTGRES_DB: sprinto
+      POSTGRES_USER: sprinto
+      POSTGRES_PASSWORD: sprinto
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sprinto"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: sprinto_redis
+
+volumes:
+  postgres_data:
